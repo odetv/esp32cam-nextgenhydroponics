@@ -19,12 +19,6 @@ NTPClient timeClient(ntpUDP, "pool.ntp.org", 28800);
 void startCameraServer();
 void setupLedFlash(int pin);
 Firebase firebase(FIREBASE_URL);
-#define PIN_RELAY_PENGURASAN_PIPA 13
-#define PIN_RELAY_POMPA_IRIGASI 12
-#define PIN_RELAY_DINAMO_PENGADUK 14
-#define PIN_RELAY_NUTRISI_AB 33
-#define PIN_RELAY_PH_UP 15
-#define PIN_RELAY_PH_DOWN 32
 
 #define CAMERA_MODEL_WROVER_KIT
 #include "camera_pins.h"
@@ -60,19 +54,6 @@ void setup() {
     timeClient.forceUpdate();
     delay(2000);
   }
-
-  pinMode(PIN_RELAY_PENGURASAN_PIPA, OUTPUT);
-  pinMode(PIN_RELAY_POMPA_IRIGASI, OUTPUT);
-  pinMode(PIN_RELAY_DINAMO_PENGADUK, OUTPUT);
-  pinMode(PIN_RELAY_NUTRISI_AB, OUTPUT);
-  pinMode(PIN_RELAY_PH_UP, OUTPUT);
-  pinMode(PIN_RELAY_PH_DOWN, OUTPUT);
-  digitalWrite(PIN_RELAY_PENGURASAN_PIPA, LOW);
-  digitalWrite(PIN_RELAY_POMPA_IRIGASI, LOW);
-  digitalWrite(PIN_RELAY_DINAMO_PENGADUK, LOW);
-  digitalWrite(PIN_RELAY_NUTRISI_AB, LOW);
-  digitalWrite(PIN_RELAY_PH_UP, LOW);
-  digitalWrite(PIN_RELAY_PH_DOWN, LOW);
 
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
@@ -157,13 +138,10 @@ void setup() {
 }
 
 void loop() {
-  Serial.println("\n=== PROSES RELAY BERJALAN ===");
-  updateRelayStatesFromFirebase();
-  Serial.println("=== PROSES RELAY SELESAI ===");
   Serial.println("\n=== PROSES KAMERA BERJALAN ===");
   uploadPhotoToFirebase();
   Serial.println("=== PROSES KAMERA SELESAI ===");
-  delay(25000);
+  delay(5000);
 }
 
 void reconnectWiFi() {
@@ -236,6 +214,8 @@ void uploadPhotoToFirebase() {
 
   int httpResponseCode = http.POST(payload);
 
+  delay(5000);
+
   if (httpResponseCode > 0) {
     Serial.print("Response HTTP API: ");
     Serial.println(httpResponseCode);
@@ -274,72 +254,6 @@ void uploadPhotoToFirebase() {
     Serial.println(httpResponseCode);
   }
   http.end();
-}
-
-void updateRelayStatesFromFirebase() {
-  Serial.println("Mengecek konektivitas jaringan...");
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("Koneksi WiFi terputus. Mencoba untuk tersambung kembali...");
-    reconnectWiFi();
-  }
-  Serial.println("Konektivitas aman.");
-
-  Serial.println("Mengecek waktu NTP...");
-  time_t now = timeClient.getEpochTime();
-  struct tm * timeinfo;
-  char currentDate[11]; // YYYY-MM-DD
-  char currentTime[7]; // HH:MM
-  timeinfo = localtime(&now);
-  strftime(currentDate, sizeof(currentDate), "%Y-%m-%d", timeinfo);
-  strftime(currentTime, sizeof(currentTime), "%H:%M", timeinfo);
-  String relayPath = "/esp32/" + String(currentDate) + "/" + String(currentTime);
-  Serial.println("Waktu NTP aman.");
-
-  Serial.print("Mengambil data relay dari Firebase dengan jalur: ");
-  Serial.println(relayPath);
-
-  // Mengambil data sebagai string
-  String relayPengurasanPipaStr = firebase.getString(relayPath + "/relay_pengurasan_pipa");
-  String relayPompaIrigasiStr = firebase.getString(relayPath + "/relay_pompa_irigasi");
-  String relayDinamoPengadukStr = firebase.getString(relayPath + "/relay_dinamo_pengaduk");
-  String relayNutrisiABStr = firebase.getString(relayPath + "/relay_nutrisi_ab");
-  String relayPhUpStr = firebase.getString(relayPath + "/relay_ph_up");
-  String relayPhDownStr = firebase.getString(relayPath + "/relay_ph_down");
-
-  // Konversi string ke integer
-  int FIREBASE_RELAY_PENGURASAN_PIPA = relayPengurasanPipaStr.toInt();
-  int FIREBASE_RELAY_POMPA_IRIGASI = relayPompaIrigasiStr.toInt();
-  int FIREBASE_RELAY_DINAMO_PENGADUK = relayDinamoPengadukStr.toInt();
-  int FIREBASE_RELAY_NUTRISI_AB = relayNutrisiABStr.toInt();
-  int FIREBASE_RELAY_PH_UP = relayPhUpStr.toInt();
-  int FIREBASE_RELAY_PH_DOWN = relayPhDownStr.toInt();
-
-  if (FIREBASE_RELAY_PENGURASAN_PIPA != -1) {
-    digitalWrite(PIN_RELAY_PENGURASAN_PIPA, FIREBASE_RELAY_PENGURASAN_PIPA);
-  }
-  if (FIREBASE_RELAY_POMPA_IRIGASI != -1) {
-    digitalWrite(PIN_RELAY_POMPA_IRIGASI, FIREBASE_RELAY_POMPA_IRIGASI);
-  }
-  if (FIREBASE_RELAY_DINAMO_PENGADUK != -1) {
-    digitalWrite(PIN_RELAY_DINAMO_PENGADUK, FIREBASE_RELAY_DINAMO_PENGADUK);
-  }
-  if (FIREBASE_RELAY_NUTRISI_AB != -1) {
-    digitalWrite(PIN_RELAY_NUTRISI_AB, FIREBASE_RELAY_NUTRISI_AB);
-  }
-  if (FIREBASE_RELAY_PH_UP != -1) {
-    digitalWrite(PIN_RELAY_PH_UP, FIREBASE_RELAY_PH_UP);
-  }
-  if (FIREBASE_RELAY_PH_DOWN != -1) {
-    digitalWrite(PIN_RELAY_PH_DOWN, FIREBASE_RELAY_PH_DOWN);
-  }
-  Serial.println("Data relay di firebase aman.");
-  Serial.println("Relay States:");
-  Serial.print("- Pengurasan Pipa: "); Serial.println(FIREBASE_RELAY_PENGURASAN_PIPA);
-  Serial.print("- Pompa Irigasi: "); Serial.println(FIREBASE_RELAY_POMPA_IRIGASI);
-  Serial.print("- Dinamo Pengaduk: "); Serial.println(FIREBASE_RELAY_DINAMO_PENGADUK);
-  Serial.print("- Nutrisi AB: "); Serial.println(FIREBASE_RELAY_NUTRISI_AB);
-  Serial.print("- PH Up: "); Serial.println(FIREBASE_RELAY_PH_UP);
-  Serial.print("- PH Down: "); Serial.println(FIREBASE_RELAY_PH_DOWN);
 }
 
 String encodebase64(uint8_t* data, size_t len) {
